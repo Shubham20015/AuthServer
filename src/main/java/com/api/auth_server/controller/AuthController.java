@@ -9,9 +9,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -26,34 +23,32 @@ public class AuthController {
     @Autowired
     private AuthService authService;
 
-    @Autowired
-    private AuthenticationManager authenticationManager;
-
     @PostMapping("/register")
-    public ResponseEntity<String> addNewUser(@RequestBody @Valid @NotNull AuthRequest request) {
+    public ResponseEntity<AuthResponse> addNewUser(@RequestBody @Valid @NotNull AuthRequest request) {
         if (authService.findByUsername(request.getUsername())) {
-            return ResponseEntity.badRequest().body("Username is already taken.");
+            AuthResponse authResponse = AuthResponse.builder()
+                    .message("Username is already taken")
+                    .timestamp(Instant.now())
+                    .build();
+            return ResponseEntity.badRequest().body(authResponse);
         }
-        String response = authService.saveUser(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        String token = authService.saveUser(request);
+        AuthResponse authResponse = AuthResponse.builder()
+                .accessToken(token)
+                .message("User added to the system")
+                .timestamp(Instant.now())
+                .build();
+        return ResponseEntity.status(HttpStatus.CREATED).body(authResponse);
     }
 
-    @PostMapping("/token")
+    @PostMapping("/login")
     public ResponseEntity<AuthResponse> getToken(@RequestBody @Valid @NotNull AuthRequest request) {
-        Authentication authentication = authenticationManager
-                .authenticate(new UsernamePasswordAuthenticationToken(
-                        request.getUsername(),
-                        request.getPassword()
-                ));
+        AuthResponse authResponse = authService.generateToken(request);
 
-        if (authentication.isAuthenticated()) {
-            AuthResponse authResponse = AuthResponse.builder()
-                                                    .accessToken(authService.generateToken(request.getUsername()))
-                                                    .timestamp(Instant.now())
-                                                    .build();
+        if (authResponse.getAccessToken() != null) {
             return ResponseEntity.status(HttpStatus.OK).body(authResponse);
         } else {
-            AuthResponse authResponse = AuthResponse.builder()
+            authResponse = AuthResponse.builder()
                     .message("Invalid username or password")
                     .timestamp(Instant.now())
                     .build();
