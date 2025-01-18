@@ -1,5 +1,6 @@
 package com.api.auth_server.service;
 
+import com.api.auth_server.entity.UserCredential;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
@@ -38,12 +39,14 @@ public class JwtService {
         }
     }
 
-    public String generateToken(String username) {
+    public String generateToken(UserCredential userCredential) {
         Map<String, Object> claims = new HashMap<>();
+        claims.put("username", userCredential.getName());
+        claims.put("email", userCredential.getEmail());
 
         return Jwts.builder()
                 .claims(claims)
-                .subject(username)
+                .subject(userCredential.getId().toString())
                 .issuedAt(new Date(System.currentTimeMillis()))
                 .expiration(new Date(System.currentTimeMillis() + expirationTime))
                 .signWith(secretKey)
@@ -60,6 +63,5 @@ public class JwtService {
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
-
     }
 }
